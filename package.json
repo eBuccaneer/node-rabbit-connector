@@ -1,0 +1,42 @@
+{
+  "name": "node-rabbit-connector",
+  "version": "1.0.0",
+  "description": "Connector for easy usage of amqplib",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node_modules/mocha/bin/_mocha -r node_modules/ts-node/register  test/**/*.spec.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eBuccaneer/node-rabbit-connector.git"
+  },
+  "keywords": [
+    "amqp",
+    "amqplib",
+    "rabbitmq",
+    "rabbit",
+    "node"
+  ],
+  "author": "eBuccaneer",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/eBuccaneer/node-rabbit-connector/issues"
+  },
+  "homepage": "https://github.com/eBuccaneer/node-rabbit-connector#readme",
+  "dependencies": {
+    "@types/lodash": "^4.14.116",
+    "amqplib": "^0.5.2",
+    "lodash": "^4.17.10",
+    "typescript": "^3.0.1"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.5.8",
+    "@types/chai": "^4.1.4",
+    "@types/mocha": "^5.2.5",
+    "chai": "^4.1.2",
+    "mocha": "^5.2.0",
+    "ts-node": "^7.0.0"
+  }
+}

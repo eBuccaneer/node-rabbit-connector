@@ -11,7 +11,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const _get = require("lodash/get");
 class NodeRabbitConnector {
     constructor(options = {}) {
-        this.hostUrl = _get(options, "hostUrl", "amqp://localhost");
+        this.hostUrli = _get(options, "hostUrl", "amqp://localhost");
         this.reconnect = _get(options, "reconnect", true);
         this.reconnectInterval = _get(options, "reconnectInterval", 2000);
         this.debug = _get(options, "debug", false);
@@ -22,7 +22,7 @@ class NodeRabbitConnector {
     }
     connect() {
         return __awaiter(this, void 0, void 0, function* () {
-            // TODO: just a test implementation
+            // TODO: implement
             return Promise.resolve();
         });
     }

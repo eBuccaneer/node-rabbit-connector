@@ -1,7 +1,7 @@
 import * as amqp from "amqplib";
 import RabbitConnectorOptions from "./types/rabbitConnectorOptions";
 export default class NodeRabbitConnector {
-    hostUrl: string;
+    hostUrli: string;
     reconnect: boolean;
     reconnectInterval: number;
     debug: boolean;

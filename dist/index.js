@@ -8,23 +8,299 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const amqp = require("amqplib");
 const _get = require("lodash/get");
 class NodeRabbitConnector {
     constructor(options = {}) {
-        this.hostUrli = _get(options, "hostUrl", "amqp://localhost");
+        this.hostUrl = _get(options, "hostUrl", "amqp://localhost");
         this.reconnect = _get(options, "reconnect", true);
         this.reconnectInterval = _get(options, "reconnectInterval", 2000);
         this.debug = _get(options, "debug", false);
+        this.channelPrefetchCount = _get(options, "channelPrefetchCount", 1);
         this.channel = undefined;
         this.connection = undefined;
-        if (!options)
-            console.log("No options given");
+        if (!options && this.debug)
+            this.log("[NodeRabbitConnector] No options given.");
     }
     connect() {
         return __awaiter(this, void 0, void 0, function* () {
-            // TODO: implement
+            try {
+                this.log(`[NodeRabbitConnector] connecting to host ${this.hostUrl} ...`);
+                this.connection = yield amqp.connect(this.hostUrl);
+                this.log(`[NodeRabbitConnector] connection to host ${this.hostUrl} established.`);
+            }
+            catch (err) {
+                this.log(`[NodeRabbitConnector] connecting to host ${this.hostUrl} failed.`, true);
+                if (this.reconnect) {
+                    this.log(`[NodeRabbitConnector] reconnecting to host ${this.hostUrl} ...`);
+                    const self = this;
+                    setTimeout(() => __awaiter(this, void 0, void 0, function* () { yield self.connect(); }), this.reconnectInterval);
+                }
+                else {
+                    return Promise.reject(err);
+                }
+            }
+            yield this.connectChannel();
             return Promise.resolve();
         });
+    }
+    connectChannel() {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                if (!!this.connection) {
+                    this.log("[NodeRabbitConnector] connecting to channel ...");
+                    this.channel = yield this.connection.createChannel();
+                    this.log("[NodeRabbitConnector] connected to channel. Setting prefetch count ...");
+                    yield this.channel.prefetch(this.channelPrefetchCount, false);
+                    this.log("[NodeRabbitConnector] prefetch count set. Ready to process some messages.");
+                    return Promise.resolve();
+                }
+                else {
+                    return Promise.reject(new Error(`[NodeRabbitConnector] connection is not established, 
+                                                connecting to channel not possible.`));
+                }
+            }
+            catch (err) {
+                this.log("[NodeRabbitConnector] connecting to channel failed.", true);
+                if (this.reconnect) {
+                    this.log("[NodeRabbitConnector] reconnecting to channel ...");
+                    const self = this;
+                    setTimeout(() => __awaiter(this, void 0, void 0, function* () { yield self.connectChannel(); }), this.reconnectInterval);
+                }
+                else {
+                    return Promise.reject(err);
+                }
+            }
+        });
+    }
+    setRPCListener(name, highPriority, consumerCallback) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                if (!!this.channel) {
+                    this.log(`[NodeRabbitConnector] trying to listen to rpc ${name} ...`);
+                    yield this.channel.assertQueue(name, { durable: true, maxPriority: highPriority ? 255 : 1 });
+                    const response = yield this.channel.consume(name, consumerCallback, { noAck: false });
+                    this.log(`[NodeRabbitConnector] listening to rpc ${name} ...`);
+                    return Promise.resolve(response.consumerTag);
+                }
+                else {
+                    return Promise.reject(new Error(`[NodeRabbitConnector] channel not open so listening 
+                                                to rpc ${name} not possible.`));
+                }
+            }
+            catch (err) {
+                this.log(`[NodeRabbitConnector] setting listener for rpc ${name} failed.`, true);
+                return Promise.reject(err);
+            }
+        });
+    }
+    replyToRPC(msg, highPriority) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                if (!!this.channel && msg.replyTo && msg.corrId) {
+                    this.log(`[NodeRabbitConnector] trying to reply to rpc ${msg.replyTo} with corrId ${msg.corrId} ...`);
+                    yield this.channel.assertQueue(msg.replyTo, { exclusive: true, autoDelete: true,
+                        maxPriority: highPriority ? 255 : 1 });
+                    yield this.channel.sendToQueue(msg.replyTo, this.serialize(msg), { persistent: true });
+                    this.log(`[NodeRabbitConnector] replied to rpc ${msg.replyTo} with corrId ${msg.corrId} ...`);
+                    return Promise.resolve();
+                }
+                else {
+                    return Promise.reject(new Error(`[NodeRabbitConnector] channel not open or corrId or replyTo properties
+                                                not set so sending to rpc not possible.`));
+                }
+            }
+            catch (err) {
+                this.log(`[NodeRabbitConnector] replying rpc failed.`, true);
+                return Promise.reject(err);
+            }
+        });
+    }
+    sendRPC(name, msg, highPriority) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const self = this;
+            return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+                try {
+                    if (!!self.channel) {
+                        self.log(`[NodeRabbitConnector] trying to send rpc ${name} ...`);
+                        const assertedResponseQueue = yield self.channel.assertQueue("", { exclusive: true, autoDelete: true, maxPriority: highPriority ? 255 : 1 });
+                        const corrId = "testididid"; // TODO: create randomly
+                        const replyTo = assertedResponseQueue.queue;
+                        const responseConsumerTag = replyTo + name + corrId;
+                        yield self.channel.assertQueue(name, { durable: true, maxPriority: highPriority ? 255 : 1 });
+                        yield self.channel.consume(replyTo, (msg) => {
+                            const responseRabbitConnectorMessage = self.deserialize(msg);
+                            if (corrId === responseRabbitConnectorMessage.corrId) {
+                                if (!!self.channel) {
+                                    self.channel.cancel(responseConsumerTag)
+                                        .then(() => {
+                                        self.log(`[NodeRabbitConnector] canceled rpc response
+                                                            consumer ${responseConsumerTag}.`);
+                                    })
+                                        .catch(error => {
+                                        self.log(`[NodeRabbitConnector] cancelling rpc response consumer 
+                                                            ${responseConsumerTag} failed.`, true);
+                                    });
+                                }
+                                self.log(`[NodeRabbitConnector] response of rpc ${name} received.`);
+                                return resolve(responseRabbitConnectorMessage);
+                            }
+                            else {
+                                self.log(`Message is ignored because corrId's are not matching.`);
+                            }
+                        }, { noAck: true, consumerTag: responseConsumerTag });
+                        yield self.channel.sendToQueue(name, self.serialize(msg), { persistent: true });
+                        self.log(`[NodeRabbitConnector] sending rpc ${name} done.`);
+                    }
+                    else {
+                        return reject(new Error(`[NodeRabbitConnector] channel not open so sending 
+                                                rpc ${name} not possible.`));
+                    }
+                }
+                catch (err) {
+                    self.log(`[NodeRabbitConnector] sending rpc ${name} failed.`, true);
+                    return reject(err);
+                }
+            }));
+        });
+    }
+    setWorkQueueListener(queueName, noAck, consumerCallback) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                if (!!this.channel) {
+                    this.log(`[NodeRabbitConnector] trying to listen to work queue ${queueName} ...`);
+                    yield this.channel.assertQueue(queueName, { durable: true });
+                    const response = yield this.channel.consume(queueName, consumerCallback, { noAck });
+                    this.log(`[NodeRabbitConnector] listening to work queue ${queueName} ...`);
+                    return Promise.resolve(response.consumerTag);
+                }
+                else {
+                    return Promise.reject(new Error(`[NodeRabbitConnector] channel not open so listening 
+                                                to work queue ${queueName} not possible.`));
+                }
+            }
+            catch (err) {
+                this.log(`[NodeRabbitConnector] setting work queue listener for queue ${queueName} failed.`, true);
+                return Promise.reject(err);
+            }
+        });
+    }
+    sendToWorkQueue(queueName, msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                if (!!this.channel) {
+                    this.log(`[NodeRabbitConnector] trying to send to work queue ${queueName} ...`);
+                    yield this.channel.assertQueue(queueName, { durable: true });
+                    yield this.channel.sendToQueue(queueName, this.serialize(msg), { persistent: true });
+                    this.log(`[NodeRabbitConnector] sending to work queue ${queueName} done.`);
+                }
+                else {
+                    return Promise.reject(new Error(`[NodeRabbitConnector] channel not open so sending 
+                                                to work queue ${queueName} not possible.`));
+                }
+            }
+            catch (err) {
+                this.log(`[NodeRabbitConnector] sending to work queue ${queueName} failed.`, true);
+                return Promise.reject(err);
+            }
+        });
+    }
+    setTopicListener(exchange, key, durable, consumerCallback) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                if (!!this.channel) {
+                    this.log(`[NodeRabbitConnector] trying to listen to topic with key ${key} on exchange ${exchange} ...`);
+                    yield this.channel.assertExchange(exchange, "topic", { durable });
+                    const assertedQueue = yield this.channel.assertQueue("", { exclusive: true });
+                    yield this.channel.bindQueue(assertedQueue.queue, exchange, key);
+                    const response = yield this.channel.consume(assertedQueue.queue, consumerCallback, { noAck: true });
+                    this.log(`[NodeRabbitConnector] listening to topic with key ${key} on exchange ${exchange} ...`);
+                    return Promise.resolve(response.consumerTag);
+                }
+                else {
+                    return Promise.reject(new Error(`[NodeRabbitConnector] channel not open so listening 
+                                                to topic with key ${key} on exchange ${exchange} not possible.`));
+                }
+            }
+            catch (err) {
+                this.log(`[NodeRabbitConnector] setting topic listener with key ${key} 
+                            on exchange ${exchange} failed.`, true);
+                return Promise.reject(err);
+            }
+        });
+    }
+    sendToTopic(exchange, key, msg, durable) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                if (!!this.channel) {
+                    this.log(`[NodeRabbitConnector] trying to send to topic with key ${key} on exchange ${exchange} ...`);
+                    yield this.channel.assertExchange(exchange, "topic", { durable });
+                    yield this.channel.publish(exchange, key, this.serialize(msg));
+                    this.log(`[NodeRabbitConnector] sending to topic with key ${key} on exchange ${exchange} done.`);
+                }
+                else {
+                    return Promise.reject(new Error(`[NodeRabbitConnector] channel not open so sending 
+                                                to topic with key ${key} on exchange ${exchange} not possible.`));
+                }
+            }
+            catch (err) {
+                this.log(`[NodeRabbitConnector] sending to topic with key ${key} on exchange ${exchange} failed.`, true);
+                return Promise.reject(err);
+            }
+        });
+    }
+    stopListening(consumerTag) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                if (!!this.channel) {
+                    this.log(`[NodeRabbitConnector] trying to cancel listener with consumer tag ${consumerTag} ...`);
+                    yield this.channel.cancel(consumerTag);
+                    this.log(`[NodeRabbitConnector] listener with consumer tag ${consumerTag} canceled.`);
+                }
+                else {
+                    return Promise.reject(new Error(`[NodeRabbitConnector] channel not open so cancelling the listener 
+                                                with consumer tag ${consumerTag} not possible.`));
+                }
+            }
+            catch (err) {
+                this.log(`[NodeRabbitConnector] cancelling the listener with consumer tag ${consumerTag} failed.`, true);
+                return Promise.reject(err);
+            }
+        });
+    }
+    // =================================================================================================================
+    log(msg, isErr) {
+        if (isErr)
+            return console.error(msg);
+        if (this.debug)
+            return console.log(msg);
+    }
+    serialize(msg) {
+        return new Buffer(JSON.stringify(msg));
+    }
+    deserialize(msg) {
+        if (!msg) {
+            return { error: "[NodeRabbitConnector] message was null." };
+        }
+        else {
+            return JSON.parse(msg.content.toString());
+        }
+    }
+    ack(msg) {
+        if (this.channel) {
+            this.channel.ack(msg);
+        }
+        else {
+            this.log("[NodeRabbitConnector] acknowledging message failed.", true);
+        }
+    }
+    reject(msg) {
+        if (this.channel) {
+            this.channel.reject(msg);
+        }
+        else {
+            this.log("[NodeRabbitConnector] rejecting message failed.", true);
+        }
     }
 }
 exports.default = NodeRabbitConnector;

@@ -5,8 +5,9 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
-    "test": "node_modules/mocha/bin/_mocha -r node_modules/ts-node/register  test/**/*.spec.ts"
+    "build": "node_modules/.bin/tsc",
+    "test": "node_modules/mocha/bin/_mocha -r node_modules/ts-node/register  test/**/*.spec.ts",
+    "lint": "node_modules/tslint/bin/tslint --project . --fix"
   },
   "repository": {
     "type": "git",
@@ -26,17 +27,18 @@
   },
   "homepage": "https://github.com/eBuccaneer/node-rabbit-connector#readme",
   "dependencies": {
-    "@types/lodash": "^4.14.116",
     "amqplib": "^0.5.2",
-    "lodash": "^4.17.10",
-    "typescript": "^3.0.1"
+    "lodash": "^4.17.10"
   },
   "devDependencies": {
     "@types/amqplib": "^0.5.8",
     "@types/chai": "^4.1.4",
+    "@types/lodash": "^4.14.116",
     "@types/mocha": "^5.2.5",
     "chai": "^4.1.2",
     "mocha": "^5.2.0",
-    "ts-node": "^7.0.0"
+    "ts-node": "^7.0.0",
+    "tslint": "^5.11.0",
+    "typescript": "^3.0.1"
   }
 }

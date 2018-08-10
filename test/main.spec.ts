@@ -16,10 +16,4 @@ describe("Basic tests", () => {
         expect(connector instanceof NodeRabbitConnector).to.be.true;
     });
 
-    it("should resolve promise on connect", async () => {
-        // TODO: change after implementation
-        const connector: NodeRabbitConnector = new NodeRabbitConnector();
-        await connector.connect();
-    });
-
 });

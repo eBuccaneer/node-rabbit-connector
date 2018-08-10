@@ -2,7 +2,6 @@ export default interface RabbitConnectorOptions {
     reconnect?: boolean;
     reconnectInterval?: number;
     exitOnError?: boolean;
-    log?: Function;
-    error?: Function;
     hostUrl?: string;
+    channelPrefetchCount?: number;
 }

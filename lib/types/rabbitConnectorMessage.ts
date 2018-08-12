@@ -4,4 +4,5 @@ export default interface RabbitConnectorMessage {
     error?: string;
     corrId?: string;
     replyTo?: string;
+    jwt?: string;
 }

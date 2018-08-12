@@ -9,6 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const amqp = require("amqplib");
+const uuid_1 = require("uuid");
 const _get = require("lodash/get");
 class NodeRabbitConnector {
     constructor(options = {}) {
@@ -73,7 +74,7 @@ class NodeRabbitConnector {
             }
         });
     }
-    setRPCListener(name, highPriority, consumerCallback) {
+    setRPCListener(name, consumerCallback, highPriority) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 if (!!this.channel) {
@@ -94,13 +95,11 @@ class NodeRabbitConnector {
             }
         });
     }
-    replyToRPC(msg, highPriority) {
+    replyToRPC(msg) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 if (!!this.channel && msg.replyTo && msg.corrId) {
                     this.log(`[NodeRabbitConnector] trying to reply to rpc ${msg.replyTo} with corrId ${msg.corrId} ...`);
-                    yield this.channel.assertQueue(msg.replyTo, { exclusive: true, autoDelete: true,
-                        maxPriority: highPriority ? 255 : 1 });
                     yield this.channel.sendToQueue(msg.replyTo, this.serialize(msg), { persistent: true });
                     this.log(`[NodeRabbitConnector] replied to rpc ${msg.replyTo} with corrId ${msg.corrId} ...`);
                     return Promise.resolve();
@@ -123,11 +122,12 @@ class NodeRabbitConnector {
                 try {
                     if (!!self.channel) {
                         self.log(`[NodeRabbitConnector] trying to send rpc ${name} ...`);
-                        const assertedResponseQueue = yield self.channel.assertQueue("", { exclusive: true, autoDelete: true, maxPriority: highPriority ? 255 : 1 });
-                        const corrId = "testididid"; // TODO: create randomly
+                        const assertedResponseQueue = yield self.channel.assertQueue("", { autoDelete: true, maxPriority: highPriority ? 255 : 1 });
+                        const corrId = uuid_1.v4();
                         const replyTo = assertedResponseQueue.queue;
+                        msg.replyTo = replyTo;
+                        msg.corrId = corrId;
                         const responseConsumerTag = replyTo + name + corrId;
-                        yield self.channel.assertQueue(name, { durable: true, maxPriority: highPriority ? 255 : 1 });
                         yield self.channel.consume(replyTo, (msg) => {
                             const responseRabbitConnectorMessage = self.deserialize(msg);
                             if (corrId === responseRabbitConnectorMessage.corrId) {
@@ -148,7 +148,8 @@ class NodeRabbitConnector {
                             else {
                                 self.log(`Message is ignored because corrId's are not matching.`);
                             }
-                        }, { noAck: true, consumerTag: responseConsumerTag });
+                        }, { noAck: true, exclusive: true, consumerTag: responseConsumerTag });
+                        yield self.channel.assertQueue(name, { durable: true, maxPriority: highPriority ? 255 : 1 });
                         yield self.channel.sendToQueue(name, self.serialize(msg), { persistent: true });
                         self.log(`[NodeRabbitConnector] sending rpc ${name} done.`);
                     }

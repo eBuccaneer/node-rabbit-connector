@@ -1,5 +1,6 @@
 import * as amqp from "amqplib";
 import { Message, Replies } from "amqplib";
+import { v4 } from "uuid";
 const _get = require("lodash/get");
 import RabbitConnectorMessage from "./types/rabbitConnectorMessage";
 import RabbitConnectorOptions from "./types/rabbitConnectorOptions";
@@ -73,8 +74,8 @@ export default class NodeRabbitConnector {
     }
 
 
-    public async setRPCListener(name: string, highPriority: boolean,
-                                consumerCallback: (msg: Message | null) => any): Promise<string> {
+    public async setRPCListener(name: string, consumerCallback: (msg: Message | null) => any,
+                                highPriority?: boolean): Promise<string> {
         try {
             if (!!this.channel) {
                 this.log(`[NodeRabbitConnector] trying to listen to rpc ${name} ...`);
@@ -96,12 +97,10 @@ export default class NodeRabbitConnector {
     }
 
 
-    public async replyToRPC(msg: RabbitConnectorMessage, highPriority: boolean) {
+    public async replyToRPC(msg: RabbitConnectorMessage) {
         try {
             if (!!this.channel && msg.replyTo && msg.corrId) {
                 this.log(`[NodeRabbitConnector] trying to reply to rpc ${msg.replyTo} with corrId ${msg.corrId} ...`);
-                await this.channel.assertQueue(msg.replyTo, {exclusive: true, autoDelete: true,
-                    maxPriority: highPriority ? 255 : 1});
                 await this.channel.sendToQueue(msg.replyTo, this.serialize(msg), {persistent: true});
                 this.log(`[NodeRabbitConnector] replied to rpc ${msg.replyTo} with corrId ${msg.corrId} ...`);
                 return Promise.resolve();
@@ -116,8 +115,7 @@ export default class NodeRabbitConnector {
         }
     }
 
-
-    public async sendRPC(name: string, msg: RabbitConnectorMessage, highPriority: boolean):
+    public async sendRPC(name: string, msg: RabbitConnectorMessage, highPriority?: boolean):
                         Promise<RabbitConnectorMessage> {
         const self = this;
         return new Promise<RabbitConnectorMessage>(async (resolve, reject) => {
@@ -126,11 +124,12 @@ export default class NodeRabbitConnector {
                     self.log(`[NodeRabbitConnector] trying to send rpc ${name} ...`);
                     const assertedResponseQueue: Replies.AssertQueue =
                         await self.channel.assertQueue("",
-                            {exclusive: true, autoDelete: true, maxPriority: highPriority ? 255 : 1});
-                    const corrId = "testididid"; // TODO: create randomly
+                            {autoDelete: true, maxPriority: highPriority ? 255 : 1});
+                    const corrId = v4();
                     const replyTo: string = assertedResponseQueue.queue;
+                    msg.replyTo = replyTo;
+                    msg.corrId = corrId;
                     const responseConsumerTag: string = replyTo + name + corrId;
-                    await self.channel.assertQueue(name, {durable: true, maxPriority: highPriority ? 255 : 1});
                     await self.channel.consume(replyTo, (msg: Message | null) => {
                         const responseRabbitConnectorMessage = self.deserialize(msg);
                         if (corrId === responseRabbitConnectorMessage.corrId) {
@@ -150,7 +149,8 @@ export default class NodeRabbitConnector {
                         } else {
                             self.log(`Message is ignored because corrId's are not matching.`);
                         }
-                    }, {noAck: true, consumerTag: responseConsumerTag});
+                    }, {noAck: true, exclusive: true, consumerTag: responseConsumerTag});
+                    await self.channel.assertQueue(name, {durable: true, maxPriority: highPriority ? 255 : 1});
                     await self.channel.sendToQueue(name, self.serialize(msg), {persistent: true});
                     self.log(`[NodeRabbitConnector] sending rpc ${name} done.`);
                 } else {
@@ -185,7 +185,6 @@ export default class NodeRabbitConnector {
             return Promise.reject(err);
         }
     }
-
 
     public async sendToWorkQueue (queueName: string, msg: RabbitConnectorMessage) {
         try {
@@ -229,7 +228,6 @@ export default class NodeRabbitConnector {
         }
     }
 
-
     public async sendToTopic(exchange: string, key: string, msg: RabbitConnectorMessage, durable: boolean) {
         try {
             if (!!this.channel) {
@@ -264,7 +262,6 @@ export default class NodeRabbitConnector {
             return Promise.reject(err);
         }
     }
-
 
     // =================================================================================================================
 

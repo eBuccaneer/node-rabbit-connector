@@ -13,9 +13,9 @@ export default class NodeRabbitConnector {
     constructor(options?: RabbitConnectorOptions);
     connect(): Promise<void>;
     private connectChannel;
-    setRPCListener(name: string, highPriority: boolean, consumerCallback: (msg: Message | null) => any): Promise<string>;
-    replyToRPC(msg: RabbitConnectorMessage, highPriority: boolean): Promise<void>;
-    sendRPC(name: string, msg: RabbitConnectorMessage, highPriority: boolean): Promise<RabbitConnectorMessage>;
+    setRPCListener(name: string, consumerCallback: (msg: Message | null) => any, highPriority?: boolean): Promise<string>;
+    replyToRPC(msg: RabbitConnectorMessage): Promise<void>;
+    sendRPC(name: string, msg: RabbitConnectorMessage, highPriority?: boolean): Promise<RabbitConnectorMessage>;
     setWorkQueueListener(queueName: string, noAck: boolean, consumerCallback: (msg: Message | null) => any): Promise<string>;
     sendToWorkQueue(queueName: string, msg: RabbitConnectorMessage): Promise<undefined>;
     setTopicListener(exchange: string, key: string, durable: boolean, consumerCallback: (msg: Message | null) => any): Promise<string>;

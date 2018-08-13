@@ -67,13 +67,17 @@ Consumer:
 public async setRPCListener(
   name: string, // the name of the rpc, for identification
   consumerCallback: (msg: Message | null) => any, // the callback that is called on message reception
-  highPriority?: boolean // if true, the message is delivered with high priority
+  /*
+    if true, the message is delivered with high priority,
+    this has to be the same for sender and consumer
+  */
+  highPriority?: boolean
 ): Promise<string>; // returns a consumerTag, required to cancel consumer later on                         
 ```
                             
 ```
 // example usage                                
-connector.setRPCListener("standard_rpc", async (msg) => {
+connector.setRPCListener("standard_rpc", async (msg: Message | null) => {
   // deserialize message
   let message: RabbitConnectorMessage = connector.deserialize(msg); 
         
@@ -95,42 +99,104 @@ connector.setRPCListener("standard_rpc", async (msg) => {
 Sender:
 ```
 // function signature
-public async sendRPC(name: string, msg: RabbitConnectorMessage, highPriority?: boolean):
-                        Promise<RabbitConnectorMessage>
-                        
 public async sendRPC(
   name: string, // the name of the rpc, for identification
   msg: RabbitConnectorMessage // the actual message
-  highPriority?: boolean // if true, the message is delivered with high priority
+  /*
+    if true, the message is delivered with high priority,
+    this has to be the same for sender and consumer
+  */
+  highPriority?: boolean
 ): Promise<RabbitConnectorMessage>; // returns a RabbitConnectorMessage as response                         
 ``` 
 
 ```
+// example usage  
 let response: RabbitConnectorMessage = await connector.sendRPC(
-        "standard_rpc", {data: {name: "testName, counter: testCounter++}}
+        "standard_rpc", {data: {name: "testName", counter: testCounter++}}
 );
 ```
 
 #### Work Queues
 Consumer:
 ```
+// function signature
+public async setWorkQueueListener(
+  queueName: string, // the name of the work queue, for identification
+  noAck: boolean, // if true, no message ackknowledgement is needed
+  consumerCallback: (msg: Message | null) => any  // the callback that is called on message reception
+): Promise<string> // returns a consumerTag, required to cancel consumer later on  
+```
 
+```
+// example usage  
+connector.setWorkQueueListener("taskQueue", false, (msg: Message | null) => {
+  // deserialize message
+  let message: RabbitConnectorMessage = connector.deserialize(msg);
+  
+  // do stuff with message here
+  
+  // ackknowledge message
+  connector.ack(msg);
+}
 ```
 
 Sender:
 ```
+// function signature
+public async sendToWorkQueue (
+  queueName: string, // the name of the work queue, for identification
+  msg: RabbitConnectorMessage // the actual message
+);
+```
 
+```
+// example usage  
+connector.sendToWorkQueue("taskQueue", {data: {name: "testName", counter: testCounter++}});
 ```
 
 #### Topic Queues
 Consumer:
 ```
+// function signature
+public async setTopicListener(
+  exchange: string, // the name of the exchange to attach the consumer to
+  key: string, // the name of the topic to listen to
+  /*
+    if yes, the exchange and the queue will survive broker restarts,
+    this has to be the same for sender and consumer
+  */
+  durable: boolean,
+  consumerCallback: (msg: Message | null) => any // the callback that is called on message reception
+): Promise<string>;// returns a consumerTag, required to cancel consumer later on
+```
 
+```
+// example usage  
+connector.setTopicListener("defaultExchange", "someTopic", false, (msg: Message | null) => {
+  let message: RabbitConnectorMessage = connector.deserialize(msg);
+  // do something with the message here
+});
 ```
 
 Sender:
 ```
+// function signature
+public async sendToTopic(
+  exchange: string, // the name of the exchange to send the message to
+  key: string, // the name of the topic the message relates to
+  msg: RabbitConnectorMessage, // the actual message
+  /*
+    if yes, the exchange to send to survives broker restarts,
+    this has to be the same for sender and consumer
+  */
+  durable: boolean
+)
+```
 
+```
+// example usage  
+connector.sendToTopic("defaultExchange", "someTopic", {msg: "testLogMessage"}, false);
 ```
 
 #### Messages

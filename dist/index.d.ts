@@ -16,10 +16,10 @@ export default class NodeRabbitConnector {
     replyToRPC(msg: RabbitConnectorMessage): Promise<void>;
     sendRPC(name: string, msg: RabbitConnectorMessage, highPriority?: boolean): Promise<RabbitConnectorMessage>;
     setWorkQueueListener(queueName: string, noAck: boolean, consumerCallback: (msg: Message | null) => any): Promise<string>;
-    sendToWorkQueue(queueName: string, msg: RabbitConnectorMessage): Promise<undefined>;
+    sendToWorkQueue(queueName: string, msg: RabbitConnectorMessage): Promise<void>;
     setTopicListener(exchange: string, key: string, durable: boolean, consumerCallback: (msg: Message | null) => any): Promise<string>;
-    sendToTopic(exchange: string, key: string, msg: RabbitConnectorMessage, durable: boolean): Promise<undefined>;
-    stopListening(consumerTag: string): Promise<undefined>;
+    sendToTopic(exchange: string, key: string, msg: RabbitConnectorMessage, durable: boolean): Promise<void>;
+    stopListening(consumerTag: string): Promise<void>;
     private log;
     private serialize;
     deserialize(msg: Message | null): RabbitConnectorMessage;

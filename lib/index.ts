@@ -216,6 +216,7 @@ export default class NodeRabbitConnector {
                 await this.channel.assertQueue(queueName, {durable: true});
                 await this.channel.sendToQueue(queueName, this.serialize(msg), {persistent: true});
                 this.log(`[NodeRabbitConnector] sending to work queue ${queueName} done.`);
+                return Promise.resolve();
             } else {
                 return Promise.reject(
                     new Error(`[NodeRabbitConnector] channel not open so sending 
@@ -237,7 +238,7 @@ export default class NodeRabbitConnector {
                 this.log(`[NodeRabbitConnector] trying to listen to topic with key ${key} on exchange ${exchange} ...`);
                 await this.channel.assertExchange(exchange, "topic", {durable});
                 const assertedQueue: Replies.AssertQueue =
-                    await this.channel.assertQueue("", {exclusive: true});
+                    await this.channel.assertQueue("", {exclusive: true, durable});
                 await this.channel.bindQueue(assertedQueue.queue, exchange, key);
                 const response: Replies.Consume = await this.channel.consume(assertedQueue.queue, consumerCallback, {noAck: true});
                 this.log(`[NodeRabbitConnector] listening to topic with key ${key} on exchange ${exchange} ...`);
@@ -264,6 +265,7 @@ export default class NodeRabbitConnector {
                 await this.channel.assertExchange(exchange, "topic", {durable});
                 await this.channel.publish(exchange, key, this.serialize(msg));
                 this.log(`[NodeRabbitConnector] sending to topic with key ${key} on exchange ${exchange} done.`);
+                return Promise.resolve();
             } else {
                 return Promise.reject(
                     new Error(`[NodeRabbitConnector] channel not open so sending 
@@ -284,6 +286,7 @@ export default class NodeRabbitConnector {
                 this.log(`[NodeRabbitConnector] trying to cancel listener with consumer tag ${consumerTag} ...`);
                 await this.channel.cancel(consumerTag);
                 this.log(`[NodeRabbitConnector] listener with consumer tag ${consumerTag} canceled.`);
+                return Promise.resolve();
             } else {
                 return Promise.reject(
                     new Error(`[NodeRabbitConnector] channel not open so cancelling the listener 

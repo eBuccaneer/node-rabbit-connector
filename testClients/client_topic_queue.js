@@ -27,7 +27,6 @@ let connector = new NodeRabbitConnector();
 
 connector.connect()
   .then(() => {
-
     if(role !== 'master' && !!topic) {
       connector.setTopicListener(exchange, topic, false, (msg) => {
         let message = connector.deserialize(msg);

@@ -1,3 +1,5 @@
+// TODO: create some tests
+
 import { expect } from "chai";
 import "mocha";
 import NodeRabbitConnector from "../lib/index";
@@ -10,7 +12,6 @@ describe("Basic tests", () => {
     });
 
     it("should create NodeRabbitConnector object with default values", async () => {
-        // TODO: change after implementation
         const connector: NodeRabbitConnector = new NodeRabbitConnector();
         expect(NodeRabbitConnector).to.exist;
         expect(connector instanceof NodeRabbitConnector).to.be.true;

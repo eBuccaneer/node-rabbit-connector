@@ -218,6 +218,7 @@ class NodeRabbitConnector {
                     yield this.channel.assertQueue(queueName, { durable: true });
                     yield this.channel.sendToQueue(queueName, this.serialize(msg), { persistent: true });
                     this.log(`[NodeRabbitConnector] sending to work queue ${queueName} done.`);
+                    return Promise.resolve();
                 }
                 else {
                     return Promise.reject(new Error(`[NodeRabbitConnector] channel not open so sending 
@@ -239,7 +240,7 @@ class NodeRabbitConnector {
                 if (!!this.channel) {
                     this.log(`[NodeRabbitConnector] trying to listen to topic with key ${key} on exchange ${exchange} ...`);
                     yield this.channel.assertExchange(exchange, "topic", { durable });
-                    const assertedQueue = yield this.channel.assertQueue("", { exclusive: true });
+                    const assertedQueue = yield this.channel.assertQueue("", { exclusive: true, durable: durable });
                     yield this.channel.bindQueue(assertedQueue.queue, exchange, key);
                     const response = yield this.channel.consume(assertedQueue.queue, consumerCallback, { noAck: true });
                     this.log(`[NodeRabbitConnector] listening to topic with key ${key} on exchange ${exchange} ...`);
@@ -268,6 +269,7 @@ class NodeRabbitConnector {
                     yield this.channel.assertExchange(exchange, "topic", { durable });
                     yield this.channel.publish(exchange, key, this.serialize(msg));
                     this.log(`[NodeRabbitConnector] sending to topic with key ${key} on exchange ${exchange} done.`);
+                    return Promise.resolve();
                 }
                 else {
                     return Promise.reject(new Error(`[NodeRabbitConnector] channel not open so sending 
@@ -290,6 +292,7 @@ class NodeRabbitConnector {
                     this.log(`[NodeRabbitConnector] trying to cancel listener with consumer tag ${consumerTag} ...`);
                     yield this.channel.cancel(consumerTag);
                     this.log(`[NodeRabbitConnector] listener with consumer tag ${consumerTag} canceled.`);
+                    return Promise.resolve();
                 }
                 else {
                     return Promise.reject(new Error(`[NodeRabbitConnector] channel not open so cancelling the listener 

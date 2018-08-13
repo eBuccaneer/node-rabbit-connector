@@ -1,5 +1,4 @@
 .idea
 node_modules
 yarn-error.log
-TODO.md
-testClients
+testClients/data

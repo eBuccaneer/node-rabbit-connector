@@ -1,4 +1,3 @@
-/// <reference types="node" />
 import { Message } from "amqplib";
 import RabbitConnectorMessage from "./types/rabbitConnectorMessage";
 import RabbitConnectorOptions from "./types/rabbitConnectorOptions";
@@ -22,7 +21,7 @@ export default class NodeRabbitConnector {
     sendToTopic(exchange: string, key: string, msg: RabbitConnectorMessage, durable: boolean): Promise<undefined>;
     stopListening(consumerTag: string): Promise<undefined>;
     private log;
-    serialize(msg: RabbitConnectorMessage): Buffer;
+    private serialize;
     deserialize(msg: Message | null): RabbitConnectorMessage;
     ack(msg: Message): void;
     reject(msg: Message): void;

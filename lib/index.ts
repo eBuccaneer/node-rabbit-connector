@@ -5,6 +5,10 @@ const _get = require("lodash/get");
 import RabbitConnectorMessage from "./types/rabbitConnectorMessage";
 import RabbitConnectorOptions from "./types/rabbitConnectorOptions";
 
+
+/*
+    simple interface for connecting to rabbitmq using amqplib (amqp in general, but only tested with rabbitmq)
+ */
 export default class NodeRabbitConnector {
 
     private hostUrl: string;
@@ -27,6 +31,9 @@ export default class NodeRabbitConnector {
         if (!options && this.debug) this.log("[NodeRabbitConnector] No options given.");
     }
 
+    /*
+        connects the connector to rabbitmq, if successful a channel connection is established afterwards
+     */
     public async connect() {
         try {
             this.log(`[NodeRabbitConnector] connecting to host ${this.hostUrl} ...`);
@@ -47,6 +54,9 @@ export default class NodeRabbitConnector {
         return Promise.resolve();
     }
 
+    /*
+        connects a channel to the established connection
+     */
     private async connectChannel() {
         try {
             if (!!this.connection) {
@@ -73,7 +83,9 @@ export default class NodeRabbitConnector {
         }
     }
 
-
+    /*
+        attaches an rpc consumer
+     */
     public async setRPCListener(name: string, consumerCallback: (msg: Message | null) => any,
                                 highPriority?: boolean): Promise<string> {
         try {
@@ -96,7 +108,9 @@ export default class NodeRabbitConnector {
         }
     }
 
-
+    /*
+        function to call by an rpc consumer after rpc work is done
+     */
     public async replyToRPC(msg: RabbitConnectorMessage) {
         try {
             if (!!this.channel && msg.replyTo && msg.corrId) {
@@ -115,6 +129,9 @@ export default class NodeRabbitConnector {
         }
     }
 
+    /*
+        makes an rpc call, this can be answered by any consumer attached to the specific rpc call
+     */
     public async sendRPC(name: string, msg: RabbitConnectorMessage, highPriority?: boolean):
                         Promise<RabbitConnectorMessage> {
         const self = this;
@@ -165,6 +182,9 @@ export default class NodeRabbitConnector {
         });
     }
 
+    /*
+        attaches a work queue consumer
+     */
     public async setWorkQueueListener(queueName: string, noAck: boolean,
                                       consumerCallback: (msg: Message | null) => any): Promise<string> {
         try {
@@ -186,6 +206,9 @@ export default class NodeRabbitConnector {
         }
     }
 
+    /*
+        sends a message to a work queue, this will be received by only 1 consumer attached to the work queue
+     */
     public async sendToWorkQueue (queueName: string, msg: RabbitConnectorMessage) {
         try {
             if (!!this.channel) {
@@ -204,6 +227,9 @@ export default class NodeRabbitConnector {
         }
     }
 
+    /*
+        attaches a topic consumer
+     */
     public async setTopicListener(exchange: string, key: string, durable: boolean,
                                        consumerCallback: (msg: Message | null) => any): Promise<string> {
         try {
@@ -228,6 +254,9 @@ export default class NodeRabbitConnector {
         }
     }
 
+    /*
+        sends a message to a specific topic, this will be received by all consumeres attached to this topic
+     */
     public async sendToTopic(exchange: string, key: string, msg: RabbitConnectorMessage, durable: boolean) {
         try {
             if (!!this.channel) {
@@ -246,6 +275,9 @@ export default class NodeRabbitConnector {
         }
     }
 
+    /*
+        stops listening by a specific consumer identified by @consumerTag
+     */
     public async stopListening(consumerTag: string) {
         try {
             if (!!this.channel) {
@@ -263,17 +295,18 @@ export default class NodeRabbitConnector {
         }
     }
 
-    // =================================================================================================================
-
     private log(msg: string, isErr?: boolean) {
         if (isErr) return console.error(msg);
         if (this.debug) return console.log(msg);
     }
 
-    public serialize(msg: RabbitConnectorMessage): Buffer {
+    private serialize(msg: RabbitConnectorMessage): Buffer {
         return new Buffer(JSON.stringify(msg));
     }
 
+    /*
+        deserializes a rabbitmq message to a RabbitConnectorMessage
+     */
     public deserialize(msg: Message | null): RabbitConnectorMessage {
         if (!msg) {
             return {error: "[NodeRabbitConnector] message was null."};
@@ -282,6 +315,9 @@ export default class NodeRabbitConnector {
         }
     }
 
+    /*
+        acknowledges a rabbitmq message
+     */
     public ack(msg: Message) {
         if (this.channel) {
             this.channel.ack(msg);
@@ -290,6 +326,9 @@ export default class NodeRabbitConnector {
         }
     }
 
+    /*
+        rejets a rabbitmq message
+     */
     public reject(msg: Message) {
         if (this.channel) {
             this.channel.reject(msg);

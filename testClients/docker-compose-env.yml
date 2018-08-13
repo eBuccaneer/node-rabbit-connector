@@ -1,0 +1,15 @@
+version: '3'
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+        - RABBITMQ_DEFAULT_PASS=guest
+        - RABBITMQ_DEFAULT_USER=guest
+    expose:
+        - "15672"
+        - "5672"
+    ports:
+        - "15672:15672"
+        - "5672:5672"
+    volumes:
+        - ./data/rabbitmq:/var/lib/rabbitmq

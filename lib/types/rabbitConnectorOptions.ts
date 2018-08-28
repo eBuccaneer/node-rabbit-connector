@@ -17,5 +17,5 @@ export default interface RabbitConnectorOptions {
 
     // if truthy, debug output is printed to console
     // if given a function, it is called with (msg: string, isErr: boolean)
-    debug?: boolean | Function;
+    debug?: boolean | ((msg: string, isErr?: boolean) => void);
 }

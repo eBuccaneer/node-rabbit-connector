@@ -54,7 +54,7 @@ let options: RabbitConnectorOptions = {
     
   // if true, debug output is printed to console
   // if given a function, it is called with (msg: string, isErr: boolean) instead of printing to console
-  debug: boolean = false;
+  debug: boolean | Function = false;
 }
 ```
 

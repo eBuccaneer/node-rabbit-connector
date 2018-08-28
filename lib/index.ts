@@ -15,7 +15,7 @@ export default class NodeRabbitConnector {
     private hostUrl: string;
     private reconnect: boolean;
     private reconnectInterval: number;
-    private debug: boolean | Function;
+    private debug: boolean | ((msg: string, isErr?: boolean) => void);
     private channelPrefetchCount: number;
     private connection?: amqp.Connection;
     private channel?: amqp.Channel;
@@ -24,9 +24,9 @@ export default class NodeRabbitConnector {
         this.hostUrl = <string> _get(options, "hostUrl", "amqp://localhost");
         this.reconnect = <boolean>_get(options, "reconnect", true);
         this.reconnectInterval = <number> _get(options, "reconnectInterval", 2000);
-        if(_isFunction(options.debug)){
-            this.debug = <Function> options.debug;
-        } else{
+        if (_isFunction(options.debug)) {
+            this.debug = <(msg: string, isErr?: boolean) => void> options.debug;
+        } else {
             this.debug = <boolean> _get(options, "debug", false);
         }
         this.channelPrefetchCount = <number> _get(options, "channelPrefetchCount", 1);
@@ -95,11 +95,17 @@ export default class NodeRabbitConnector {
                                 highPriority?: boolean): Promise<string> {
         try {
             if (!!this.channel) {
+                const self = this;
+                const wrapper = (msg: Message | null): any => {
+                    self.log(`[NodeRabbitConnector] rpc request message received.`);
+                    consumerCallback(msg);
+                };
+
                 this.log(`[NodeRabbitConnector] trying to listen to rpc ${name} ...`);
                 await this.channel.assertQueue(name, {durable: true, maxPriority: highPriority ? 255 : 1});
 
                 const response: Replies.Consume =
-                    await this.channel.consume(name, consumerCallback, {noAck: false});
+                    await this.channel.consume(name, wrapper, {noAck: false});
                 this.log(`[NodeRabbitConnector] listening to rpc ${name} ...`);
                 return Promise.resolve(response.consumerTag);
             } else {
@@ -194,10 +200,16 @@ export default class NodeRabbitConnector {
                                       consumerCallback: (msg: Message | null) => any): Promise<string> {
         try {
             if (!!this.channel) {
+                const self = this;
+                const wrapper = (msg: Message | null): any => {
+                    self.log(`[NodeRabbitConnector] work queue request message received.`);
+                    consumerCallback(msg);
+                };
+
                 this.log(`[NodeRabbitConnector] trying to listen to work queue ${queueName} ...`);
                 await this.channel.assertQueue(queueName, {durable: true});
                 const response: Replies.Consume =
-                    await this.channel.consume(queueName, consumerCallback, {noAck});
+                    await this.channel.consume(queueName, wrapper, {noAck});
                 this.log(`[NodeRabbitConnector] listening to work queue ${queueName} ...`);
                 return Promise.resolve(response.consumerTag);
             } else {
@@ -240,12 +252,18 @@ export default class NodeRabbitConnector {
                                        consumerCallback: (msg: Message | null) => any): Promise<string> {
         try {
             if (!!this.channel) {
+                const self = this;
+                const wrapper = (msg: Message | null): any => {
+                    self.log(`[NodeRabbitConnector] topic message received.`);
+                    consumerCallback(msg);
+                };
+
                 this.log(`[NodeRabbitConnector] trying to listen to topic with key ${key} on exchange ${exchange} ...`);
                 await this.channel.assertExchange(exchange, "topic", {durable});
                 const assertedQueue: Replies.AssertQueue =
                     await this.channel.assertQueue("", {exclusive: true, durable});
                 await this.channel.bindQueue(assertedQueue.queue, exchange, key);
-                const response: Replies.Consume = await this.channel.consume(assertedQueue.queue, consumerCallback, {noAck: true});
+                const response: Replies.Consume = await this.channel.consume(assertedQueue.queue, wrapper, {noAck: true});
                 this.log(`[NodeRabbitConnector] listening to topic with key ${key} on exchange ${exchange} ...`);
                 return Promise.resolve(response.consumerTag);
             } else {
@@ -305,12 +323,12 @@ export default class NodeRabbitConnector {
 
     private log(msg: string, isErr?: boolean) {
         if (this.debug) {
-            if(_isFunction(this.debug)){
-                return (<Function> this.debug)(msg, isErr);
-            } else{
+            if (_isFunction(this.debug)) {
+                return (<(msg: string, isErr?: boolean) => void> this.debug)(msg, isErr);
+            } else {
                 return isErr ? console.error(msg) : console.log(msg);
             }
-        } else if (isErr){
+        } else if (isErr) {
             return console.error(msg);
         }
     }

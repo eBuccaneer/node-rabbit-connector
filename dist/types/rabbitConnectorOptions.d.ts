@@ -3,5 +3,5 @@ export default interface RabbitConnectorOptions {
     reconnectInterval?: number;
     hostUrl?: string;
     channelPrefetchCount?: number;
-    debug?: boolean | Function;
+    debug?: boolean | ((msg: string, isErr?: boolean) => void);
 }

@@ -96,9 +96,14 @@ class NodeRabbitConnector {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 if (!!this.channel) {
+                    const self = this;
+                    const wrapper = (msg) => {
+                        self.log(`[NodeRabbitConnector] rpc request message received.`);
+                        consumerCallback(msg);
+                    };
                     this.log(`[NodeRabbitConnector] trying to listen to rpc ${name} ...`);
                     yield this.channel.assertQueue(name, { durable: true, maxPriority: highPriority ? 255 : 1 });
-                    const response = yield this.channel.consume(name, consumerCallback, { noAck: false });
+                    const response = yield this.channel.consume(name, wrapper, { noAck: false });
                     this.log(`[NodeRabbitConnector] listening to rpc ${name} ...`);
                     return Promise.resolve(response.consumerTag);
                 }
@@ -196,9 +201,14 @@ class NodeRabbitConnector {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 if (!!this.channel) {
+                    const self = this;
+                    const wrapper = (msg) => {
+                        self.log(`[NodeRabbitConnector] work queue request message received.`);
+                        consumerCallback(msg);
+                    };
                     this.log(`[NodeRabbitConnector] trying to listen to work queue ${queueName} ...`);
                     yield this.channel.assertQueue(queueName, { durable: true });
-                    const response = yield this.channel.consume(queueName, consumerCallback, { noAck });
+                    const response = yield this.channel.consume(queueName, wrapper, { noAck });
                     this.log(`[NodeRabbitConnector] listening to work queue ${queueName} ...`);
                     return Promise.resolve(response.consumerTag);
                 }
@@ -244,11 +254,16 @@ class NodeRabbitConnector {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 if (!!this.channel) {
+                    const self = this;
+                    const wrapper = (msg) => {
+                        self.log(`[NodeRabbitConnector] topic message received.`);
+                        consumerCallback(msg);
+                    };
                     this.log(`[NodeRabbitConnector] trying to listen to topic with key ${key} on exchange ${exchange} ...`);
                     yield this.channel.assertExchange(exchange, "topic", { durable });
                     const assertedQueue = yield this.channel.assertQueue("", { exclusive: true, durable });
                     yield this.channel.bindQueue(assertedQueue.queue, exchange, key);
-                    const response = yield this.channel.consume(assertedQueue.queue, consumerCallback, { noAck: true });
+                    const response = yield this.channel.consume(assertedQueue.queue, wrapper, { noAck: true });
                     this.log(`[NodeRabbitConnector] listening to topic with key ${key} on exchange ${exchange} ...`);
                     return Promise.resolve(response.consumerTag);
                 }
@@ -312,15 +327,16 @@ class NodeRabbitConnector {
         });
     }
     log(msg, isErr) {
-        if (isErr)
-            return console.error(msg);
         if (this.debug) {
             if (_isFunction(this.debug)) {
                 return this.debug(msg, isErr);
             }
             else {
-                return console.log(msg);
+                return isErr ? console.error(msg) : console.log(msg);
             }
+        }
+        else if (isErr) {
+            return console.error(msg);
         }
     }
     serialize(msg) {

@@ -1,9 +1,10 @@
 import * as amqp from "amqplib";
 import { Message, Replies } from "amqplib";
 import { v4 } from "uuid";
-const _get = require("lodash/get");
 import RabbitConnectorMessage from "./types/rabbitConnectorMessage";
 import RabbitConnectorOptions from "./types/rabbitConnectorOptions";
+const _get = require("lodash/get");
+const _isFunction = require("lodash/isFunction");
 
 
 /*
@@ -14,7 +15,7 @@ export default class NodeRabbitConnector {
     private hostUrl: string;
     private reconnect: boolean;
     private reconnectInterval: number;
-    private debug: boolean;
+    private debug: boolean | Function;
     private channelPrefetchCount: number;
     private connection?: amqp.Connection;
     private channel?: amqp.Channel;
@@ -23,7 +24,11 @@ export default class NodeRabbitConnector {
         this.hostUrl = <string> _get(options, "hostUrl", "amqp://localhost");
         this.reconnect = <boolean>_get(options, "reconnect", true);
         this.reconnectInterval = <number> _get(options, "reconnectInterval", 2000);
-        this.debug = <boolean> _get(options, "debug", false);
+        if(_isFunction(options.debug)){
+            this.debug = <Function> options.debug;
+        } else{
+            this.debug = <boolean> _get(options, "debug", false);
+        }
         this.channelPrefetchCount = <number> _get(options, "channelPrefetchCount", 1);
         this.channel = undefined;
         this.connection = undefined;
@@ -299,8 +304,15 @@ export default class NodeRabbitConnector {
     }
 
     private log(msg: string, isErr?: boolean) {
-        if (isErr) return console.error(msg);
-        if (this.debug) return console.log(msg);
+        if (this.debug) {
+            if(_isFunction(this.debug)){
+                return (<Function> this.debug)(msg, isErr);
+            } else{
+                return isErr ? console.error(msg) : console.log(msg);
+            }
+        } else if (isErr){
+            return console.error(msg);
+        }
     }
 
     private serialize(msg: RabbitConnectorMessage): Buffer {

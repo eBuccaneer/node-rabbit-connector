@@ -11,6 +11,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const amqp = require("amqplib");
 const uuid_1 = require("uuid");
 const _get = require("lodash/get");
+const _isFunction = require("lodash/isFunction");
 /*
     simple interface for connecting to rabbitmq using amqplib (amqp in general, but only tested with rabbitmq)
  */
@@ -19,7 +20,12 @@ class NodeRabbitConnector {
         this.hostUrl = _get(options, "hostUrl", "amqp://localhost");
         this.reconnect = _get(options, "reconnect", true);
         this.reconnectInterval = _get(options, "reconnectInterval", 2000);
-        this.debug = _get(options, "debug", false);
+        if (_isFunction(options.debug)) {
+            this.debug = options.debug;
+        }
+        else {
+            this.debug = _get(options, "debug", false);
+        }
         this.channelPrefetchCount = _get(options, "channelPrefetchCount", 1);
         this.channel = undefined;
         this.connection = undefined;
@@ -240,7 +246,7 @@ class NodeRabbitConnector {
                 if (!!this.channel) {
                     this.log(`[NodeRabbitConnector] trying to listen to topic with key ${key} on exchange ${exchange} ...`);
                     yield this.channel.assertExchange(exchange, "topic", { durable });
-                    const assertedQueue = yield this.channel.assertQueue("", { exclusive: true, durable: durable });
+                    const assertedQueue = yield this.channel.assertQueue("", { exclusive: true, durable });
                     yield this.channel.bindQueue(assertedQueue.queue, exchange, key);
                     const response = yield this.channel.consume(assertedQueue.queue, consumerCallback, { noAck: true });
                     this.log(`[NodeRabbitConnector] listening to topic with key ${key} on exchange ${exchange} ...`);
@@ -308,8 +314,14 @@ class NodeRabbitConnector {
     log(msg, isErr) {
         if (isErr)
             return console.error(msg);
-        if (this.debug)
-            return console.log(msg);
+        if (this.debug) {
+            if (_isFunction(this.debug)) {
+                return this.debug(msg, isErr);
+            }
+            else {
+                return console.log(msg);
+            }
+        }
     }
     serialize(msg) {
         return new Buffer(JSON.stringify(msg));

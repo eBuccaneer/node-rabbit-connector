@@ -23,7 +23,9 @@ if(!exchange) exchange = 'standard_exchange';
 
 let messageCounter = 0;
 
-let connector = new NodeRabbitConnector();
+let connector = new NodeRabbitConnector({debug: (msg, isErr) => {
+    console.log(msg, " # ", isErr);
+  }});
 
 connector.connect()
   .then(() => {

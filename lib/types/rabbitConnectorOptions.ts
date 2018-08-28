@@ -15,6 +15,7 @@ export default interface RabbitConnectorOptions {
     // indicates the maximum number of unacknowledged messages per consumer
     channelPrefetchCount?: number;
 
-    // if true, debug output is printed to console
-    debug?: boolean;
+    // if truthy, debug output is printed to console
+    // if given a function, it is called with (msg: string, isErr: boolean)
+    debug?: boolean | Function;
 }

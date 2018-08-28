@@ -1,6 +1,6 @@
 # TODO
 
-* [  ] publish to npm
+* [ X ] publish to npm
 * [  ] manual usage testing
 * [  ] coverage tests
 * [  ] integration tests

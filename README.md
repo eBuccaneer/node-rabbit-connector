@@ -43,8 +43,11 @@ let options: RabbitConnectorOptions = {
   // if true, the the connector tries to connect to rabbitmq till the first connection is established
   reconnect: boolean = true;
     
-  // interval in milliseconds that indicates sleep time between connects
+  // interval in milliseconds that indicates sleep time between connects when first connecting
   reconnectInterval: number = 2000;
+    
+  // maximum attempts to reconnect on start
+  reconnectTries: number = 2000;
     
   // the url for connecting to rabbitmq instance
   hostUrl: string = "amqp://localhost";

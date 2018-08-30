@@ -4,6 +4,8 @@ import RabbitConnectorOptions from "./types/rabbitConnectorOptions";
 export default class NodeRabbitConnector {
     private hostUrl;
     private reconnect;
+    private reconnectTries;
+    private reconnectCounter;
     private reconnectInterval;
     private debug;
     private channelPrefetchCount;

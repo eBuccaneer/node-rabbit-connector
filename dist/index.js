@@ -17,6 +17,7 @@ const _isFunction = require("lodash/isFunction");
  */
 class NodeRabbitConnector {
     constructor(options = {}) {
+        this.reconnectCounter = 0;
         this.hostUrl = _get(options, "hostUrl", "amqp://localhost");
         this.reconnect = _get(options, "reconnect", true);
         this.reconnectInterval = _get(options, "reconnectInterval", 2000);
@@ -29,6 +30,7 @@ class NodeRabbitConnector {
         this.channelPrefetchCount = _get(options, "channelPrefetchCount", 1);
         this.channel = undefined;
         this.connection = undefined;
+        this.reconnectTries = _get(options, "reconnectTries", 20);
         if (!options && this.debug)
             this.log("[NodeRabbitConnector] No options given.");
     }
@@ -46,13 +48,25 @@ class NodeRabbitConnector {
             }
             catch (err) {
                 this.log(`[NodeRabbitConnector] connecting to host ${this.hostUrl} failed.`, true);
-                if (this.reconnect) {
+                if (this.reconnect && this.reconnectCounter < this.reconnectTries) {
                     this.log(`[NodeRabbitConnector] reconnecting to host ${this.hostUrl} ...`);
+                    this.reconnectCounter++;
                     const self = this;
-                    setTimeout(() => __awaiter(this, void 0, void 0, function* () { yield self.connect(); }), this.reconnectInterval);
+                    yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+                        setTimeout(() => __awaiter(this, void 0, void 0, function* () {
+                            try {
+                                yield self.connect();
+                                self.reconnectCounter = 0;
+                                resolve();
+                            }
+                            catch (err) {
+                                reject(err);
+                            }
+                        }), this.reconnectInterval);
+                    }));
                 }
                 else {
-                    return;
+                    return Promise.reject(err);
                 }
             }
         });
@@ -78,10 +92,22 @@ class NodeRabbitConnector {
             }
             catch (err) {
                 this.log("[NodeRabbitConnector] connecting to channel failed.", true);
-                if (this.reconnect) {
+                if (this.reconnect && this.reconnectCounter < this.reconnectTries) {
                     this.log("[NodeRabbitConnector] reconnecting to channel ...");
+                    this.reconnectCounter++;
                     const self = this;
-                    setTimeout(() => __awaiter(this, void 0, void 0, function* () { yield self.connectChannel(); }), this.reconnectInterval);
+                    yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+                        setTimeout(() => __awaiter(this, void 0, void 0, function* () {
+                            try {
+                                yield self.connectChannel();
+                                self.reconnectCounter = 0;
+                                resolve();
+                            }
+                            catch (err) {
+                                reject(err);
+                            }
+                        }), this.reconnectInterval);
+                    }));
                 }
                 else {
                     return Promise.reject(err);

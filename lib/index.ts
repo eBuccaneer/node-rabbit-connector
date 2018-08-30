@@ -14,6 +14,8 @@ export default class NodeRabbitConnector {
 
     private hostUrl: string;
     private reconnect: boolean;
+    private reconnectTries: number;
+    private reconnectCounter = 0;
     private reconnectInterval: number;
     private debug: boolean | ((msg: string, isErr?: boolean) => void);
     private channelPrefetchCount: number;
@@ -32,6 +34,7 @@ export default class NodeRabbitConnector {
         this.channelPrefetchCount = <number> _get(options, "channelPrefetchCount", 1);
         this.channel = undefined;
         this.connection = undefined;
+        this.reconnectTries = <number> _get(options, "reconnectTries", 20);
 
         if (!options && this.debug) this.log("[NodeRabbitConnector] No options given.");
     }
@@ -48,12 +51,23 @@ export default class NodeRabbitConnector {
             return Promise.resolve();
         } catch (err) {
             this.log(`[NodeRabbitConnector] connecting to host ${this.hostUrl} failed.`, true);
-            if (this.reconnect) {
+            if (this.reconnect && this.reconnectCounter < this.reconnectTries) {
                 this.log(`[NodeRabbitConnector] reconnecting to host ${this.hostUrl} ...`);
+                this.reconnectCounter ++;
                 const self = this;
-                setTimeout(async () => { await self.connect(); }, this.reconnectInterval);
+                await new Promise(async (resolve, reject) => {
+                    setTimeout(async () => {
+                        try {
+                            await self.connect();
+                            self.reconnectCounter = 0;
+                            resolve();
+                        } catch (err) {
+                            reject(err);
+                        }
+                    }, this.reconnectInterval);
+                });
             } else {
-                return;
+                return Promise.reject(err);
             }
         }
     }
@@ -77,10 +91,21 @@ export default class NodeRabbitConnector {
             }
         } catch (err) {
             this.log("[NodeRabbitConnector] connecting to channel failed.", true);
-            if (this.reconnect) {
+            if (this.reconnect && this.reconnectCounter < this.reconnectTries) {
                 this.log("[NodeRabbitConnector] reconnecting to channel ...");
+                this.reconnectCounter ++;
                 const self = this;
-                setTimeout(async () => { await self.connectChannel(); }, this.reconnectInterval);
+                await new Promise(async (resolve, reject) => {
+                    setTimeout(async () => {
+                        try {
+                            await self.connectChannel();
+                            self.reconnectCounter = 0;
+                            resolve();
+                        } catch (err) {
+                            reject(err);
+                        }
+                    }, this.reconnectInterval);
+                });
             } else {
                 return Promise.reject(err);
             }

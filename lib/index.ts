@@ -48,6 +48,9 @@ export default class NodeRabbitConnector {
         try {
             this.log(`[NodeRabbitConnector] connecting to host ${this.hostUrl} ...`);
             this.connection = await amqp.connect(this.hostUrl);
+            this.connection.on("close", (err) => {
+                this.log(err, true, true);
+            });
             this.log(`[NodeRabbitConnector] connection to host ${this.hostUrl} established.`);
             await this.connectChannel();
             return Promise.resolve();
@@ -82,9 +85,6 @@ export default class NodeRabbitConnector {
             if (!!this.connection) {
                 this.log("[NodeRabbitConnector] connecting to channel ...");
                 this.channel = await this.connection.createChannel();
-                this.channel.on("close", (err) => {
-                    this.log(err, true, true);
-                });
                 this.log("[NodeRabbitConnector] connected to channel. Setting prefetch count ...");
                 await this.channel.prefetch(this.channelPrefetchCount, false);
                 this.log("[NodeRabbitConnector] prefetch count set. Ready to process some messages.");

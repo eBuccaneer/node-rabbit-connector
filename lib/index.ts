@@ -53,7 +53,7 @@ export default class NodeRabbitConnector {
                 const self = this;
                 setTimeout(async () => { await self.connect(); }, this.reconnectInterval);
             } else {
-                return Promise.reject(err);
+                return;
             }
         }
     }

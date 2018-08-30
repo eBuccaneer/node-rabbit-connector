@@ -41,6 +41,8 @@ class NodeRabbitConnector {
                 this.log(`[NodeRabbitConnector] connecting to host ${this.hostUrl} ...`);
                 this.connection = yield amqp.connect(this.hostUrl);
                 this.log(`[NodeRabbitConnector] connection to host ${this.hostUrl} established.`);
+                yield this.connectChannel();
+                return Promise.resolve();
             }
             catch (err) {
                 this.log(`[NodeRabbitConnector] connecting to host ${this.hostUrl} failed.`, true);
@@ -50,11 +52,9 @@ class NodeRabbitConnector {
                     setTimeout(() => __awaiter(this, void 0, void 0, function* () { yield self.connect(); }), this.reconnectInterval);
                 }
                 else {
-                    return Promise.reject(err);
+                    return;
                 }
             }
-            yield this.connectChannel();
-            return Promise.resolve();
         });
     }
     /*

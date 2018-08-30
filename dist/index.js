@@ -28,9 +28,10 @@ class NodeRabbitConnector {
             this.debug = _get(options, "debug", false);
         }
         this.channelPrefetchCount = _get(options, "channelPrefetchCount", 1);
+        this.reconnectTries = _get(options, "reconnectTries", 20);
+        this.exitOnDisconnectError = _get(options, "exitOnDisconnectError", true);
         this.channel = undefined;
         this.connection = undefined;
-        this.reconnectTries = _get(options, "reconnectTries", 20);
         if (!options && this.debug)
             this.log("[NodeRabbitConnector] No options given.");
     }
@@ -42,6 +43,9 @@ class NodeRabbitConnector {
             try {
                 this.log(`[NodeRabbitConnector] connecting to host ${this.hostUrl} ...`);
                 this.connection = yield amqp.connect(this.hostUrl);
+                this.connection.on("close", (err) => {
+                    this.log(err, true, true);
+                });
                 this.log(`[NodeRabbitConnector] connection to host ${this.hostUrl} established.`);
                 yield this.connectChannel();
                 return Promise.resolve();
@@ -80,6 +84,9 @@ class NodeRabbitConnector {
                 if (!!this.connection) {
                     this.log("[NodeRabbitConnector] connecting to channel ...");
                     this.channel = yield this.connection.createChannel();
+                    this.channel.on("close", (err) => {
+                        this.log(err, true, true);
+                    });
                     this.log("[NodeRabbitConnector] connected to channel. Setting prefetch count ...");
                     yield this.channel.prefetch(this.channelPrefetchCount, false);
                     this.log("[NodeRabbitConnector] prefetch count set. Ready to process some messages.");
@@ -352,17 +359,26 @@ class NodeRabbitConnector {
             }
         });
     }
-    log(msg, isErr) {
+    log(msg, isErr, exit) {
         if (this.debug) {
             if (_isFunction(this.debug)) {
-                return this.debug(msg, isErr);
+                return this.debug(msg, isErr, exit);
             }
             else {
-                return isErr ? console.error(msg) : console.log(msg);
+                if (isErr) {
+                    console.error(msg);
+                    if (exit && this.exitOnDisconnectError)
+                        setTimeout(process.exit(1), 2000);
+                }
+                else {
+                    console.log(msg);
+                }
             }
         }
         else if (isErr) {
-            return console.error(msg);
+            console.error(msg);
+            if (exit && this.exitOnDisconnectError)
+                setTimeout(process.exit(1), 2000);
         }
     }
     serialize(msg) {

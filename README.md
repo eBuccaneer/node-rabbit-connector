@@ -55,9 +55,12 @@ let options: RabbitConnectorOptions = {
   // indicates the maximum number of unacknowledged messages per consumer
   channelPrefetchCount: number = 1;
     
+  // indicates if process should be killed if disconnected
+  exitOnDisconnectError: boolean = true;
+    
   // if true, debug output is printed to console
-  // if given a function, it is called with (msg: string, isErr: boolean) instead of printing to console
-  debug: boolean | ((msg: string, isErr?: boolean) => void) = false;
+  // if given a function, it is called with (msg: string, isErr: boolean, exit: boolean) instead of printing to console
+  debug: boolean | ((msg: string, isErr?: boolean, exit?: boolean) => void) = false;
 }
 ```
 

@@ -17,6 +17,7 @@ export default class NodeRabbitConnector {
     private reconnectTries: number;
     private reconnectCounter = 0;
     private reconnectInterval: number;
+    private exitOnDisconnectError: boolean;
     private debug: boolean | ((msg: string, isErr?: boolean) => void);
     private channelPrefetchCount: number;
     private connection?: amqp.Connection;
@@ -32,9 +33,10 @@ export default class NodeRabbitConnector {
             this.debug = <boolean> _get(options, "debug", false);
         }
         this.channelPrefetchCount = <number> _get(options, "channelPrefetchCount", 1);
+        this.reconnectTries = <number> _get(options, "reconnectTries", 20);
+        this.exitOnDisconnectError = <boolean>_get(options, "exitOnDisconnectError", true);
         this.channel = undefined;
         this.connection = undefined;
-        this.reconnectTries = <number> _get(options, "reconnectTries", 20);
 
         if (!options && this.debug) this.log("[NodeRabbitConnector] No options given.");
     }
@@ -46,6 +48,9 @@ export default class NodeRabbitConnector {
         try {
             this.log(`[NodeRabbitConnector] connecting to host ${this.hostUrl} ...`);
             this.connection = await amqp.connect(this.hostUrl);
+            this.connection.on("close", (err) => {
+                this.log(err, true, true);
+            });
             this.log(`[NodeRabbitConnector] connection to host ${this.hostUrl} established.`);
             await this.connectChannel();
             return Promise.resolve();
@@ -80,6 +85,9 @@ export default class NodeRabbitConnector {
             if (!!this.connection) {
                 this.log("[NodeRabbitConnector] connecting to channel ...");
                 this.channel = await this.connection.createChannel();
+                this.channel.on("close", (err) => {
+                    this.log(err, true, true);
+                });
                 this.log("[NodeRabbitConnector] connected to channel. Setting prefetch count ...");
                 await this.channel.prefetch(this.channelPrefetchCount, false);
                 this.log("[NodeRabbitConnector] prefetch count set. Ready to process some messages.");
@@ -345,15 +353,21 @@ export default class NodeRabbitConnector {
         }
     }
 
-    private log(msg: string, isErr?: boolean) {
+    private log(msg: string, isErr?: boolean, exit?: boolean) {
         if (this.debug) {
             if (_isFunction(this.debug)) {
-                return (<(msg: string, isErr?: boolean) => void> this.debug)(msg, isErr);
+                return (<(msg: string, isErr?: boolean, exit?: boolean) => void> this.debug)(msg, isErr, exit);
             } else {
-                return isErr ? console.error(msg) : console.log(msg);
+                if (isErr) {
+                    console.error(msg);
+                    if (exit && this.exitOnDisconnectError) setTimeout(process.exit(1), 2000);
+                } else {
+                    console.log(msg);
+                }
             }
         } else if (isErr) {
-            return console.error(msg);
+            console.error(msg);
+            if (exit && this.exitOnDisconnectError) setTimeout(process.exit(1), 2000);
         }
     }
 

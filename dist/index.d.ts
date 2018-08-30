@@ -7,6 +7,7 @@ export default class NodeRabbitConnector {
     private reconnectTries;
     private reconnectCounter;
     private reconnectInterval;
+    private exitOnDisconnectError;
     private debug;
     private channelPrefetchCount;
     private connection?;

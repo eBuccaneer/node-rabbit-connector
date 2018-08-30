@@ -9,13 +9,19 @@ export default interface RabbitConnectorOptions {
     // interval in milliseconds that indicates sleep time between connects
     reconnectInterval?: number;
 
+    // maximum attempts to reconnect on start
+    reconnectTries?: number;
+
     // the url for connecting to rabbitmq instance
     hostUrl?: string;
 
     // indicates the maximum number of unacknowledged messages per consumer
     channelPrefetchCount?: number;
 
+    // indicates if process should be killed if disconnected
+    exitOnDisconnectError?: boolean;
+
     // if truthy, debug output is printed to console
-    // if given a function, it is called with (msg: string, isErr: boolean)
-    debug?: boolean | ((msg: string, isErr?: boolean) => void);
+    // if given a function, it is called with (msg: string, isErr: boolean, exit?: boolean)
+    debug?: boolean | ((msg: string, isErr?: boolean, exit?: boolean) => void);
 }

@@ -44,6 +44,8 @@ export default class NodeRabbitConnector {
             this.log(`[NodeRabbitConnector] connecting to host ${this.hostUrl} ...`);
             this.connection = await amqp.connect(this.hostUrl);
             this.log(`[NodeRabbitConnector] connection to host ${this.hostUrl} established.`);
+            await this.connectChannel();
+            return Promise.resolve();
         } catch (err) {
             this.log(`[NodeRabbitConnector] connecting to host ${this.hostUrl} failed.`, true);
             if (this.reconnect) {
@@ -54,9 +56,6 @@ export default class NodeRabbitConnector {
                 return Promise.reject(err);
             }
         }
-
-        await this.connectChannel();
-        return Promise.resolve();
     }
 
     /*

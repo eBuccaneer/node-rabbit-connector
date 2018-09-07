@@ -4,3 +4,4 @@ testClients
 TODO.md
 yarn-error.log
 test
+.travis.yml

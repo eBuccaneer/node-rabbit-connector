@@ -1,12 +1,17 @@
+![Travis (.org) master](https://img.shields.io/travis/eBuccaneer/node-rabbit-connector/master.svg) 
+![npm](https://img.shields.io/npm/dt/node-rabbit-connector.svg)
+
 # node-rabbit-connector
 
 ## ATTENTION: This module is currently in alpha development phase, please use  at your own risk!
 
 ## Description
-The module node-rabbit-connector is a simple interface for easily connecting to rabbitmq 
+The module node-rabbit-connector is a simple interface for easily connecting to RabbitMQ 
 using amqplib written in typescript. It is useful for quick development but by far not as flexible as the
 original amqplib. This is also the greatest advantage, not having to deal with more complexity.
-It can be used for connecting to any amqp implementation, but it is only tested with rabbitmq.
+It can be used for connecting to any amqp implementation, but it is only tested with RabbitMQ.
+Additionally there is an npm module called [node-rabbit-viewer](https://www.npmjs.com/package/node-rabbit-viewer)
+related to this module that allows to write documentation for consumers and requests, but it is still in development.
 
 
 ## Install
@@ -68,6 +73,7 @@ let options: RabbitConnectorOptions = {
 This sections shows how to send and receive different messages.
 
 #### RPC Calls
+Beware of the constraint that an RPC call's name and a work queue's name must not match!
 Consumer:
 ```
 // function signature
@@ -125,6 +131,7 @@ let response: RabbitConnectorMessage = await connector.sendRPC(
 ```
 
 #### Work Queues
+Beware of the constraint that a work queue's name and the name of an RPC call must not match!
 Consumer:
 ```
 // function signature
@@ -173,7 +180,7 @@ public async setTopicListener(
     if yes, the exchange and the queue will survive broker restarts,
     this has to be the same for sender and consumer
   */
-  durable: boolean,
+  durable: boolean, // if true, exchange will survive broker restarts
   consumerCallback: (msg: Message | null) => any // the callback that is called on message reception
 ): Promise<string>;// returns a consumerTag, required to cancel consumer later on
 ```
@@ -197,7 +204,7 @@ public async sendToTopic(
     if yes, the exchange to send to survives broker restarts,
     this has to be the same for sender and consumer
   */
-  durable: boolean
+  durable: boolean // if true, exchange will survive broker restarts
 )
 ```
 

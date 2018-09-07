@@ -37,6 +37,22 @@ connector.connect()
           connector.ack(msg);
         }, interval * 1.5);
       });
+
+      for(let i = 0; i < 200; i++){
+        connector.setWorkQueueListener(taskQueue + i, false, (msg) => {
+          let message = connector.deserialize(msg);
+          if (message.msg) {
+            console.log('Message received in taskQueue ' + taskQueue + i + ': ' + message.msg);
+          } else {
+            console.log('Object received in taskQueue ' + taskQueue + i + ':');
+            console.log(message.data);
+          }
+          setTimeout(function () {
+            console.log(" [x] Done in taskQueue " + taskQueue + i);
+            connector.ack(msg);
+          }, interval * 1.5);
+        });
+      }
     }
 
     if(role === 'master' && !!taskQueue) {

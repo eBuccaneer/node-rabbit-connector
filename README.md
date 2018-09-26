@@ -52,7 +52,7 @@ let options: RabbitConnectorOptions = {
   reconnectInterval: number = 2000;
     
   // maximum attempts to reconnect on start
-  reconnectTries: number = 2000;
+  reconnectTries: number = 20;
     
   // the url for connecting to rabbitmq instance
   hostUrl: string = "amqp://localhost";
@@ -180,7 +180,7 @@ public async setTopicListener(
     if yes, the exchange and the queue will survive broker restarts,
     this has to be the same for sender and consumer
   */
-  durable: boolean, // if true, exchange will survive broker restarts
+  durable: boolean,
   consumerCallback: (msg: Message | null) => any // the callback that is called on message reception
 ): Promise<string>;// returns a consumerTag, required to cancel consumer later on
 ```
@@ -204,7 +204,7 @@ public async sendToTopic(
     if yes, the exchange to send to survives broker restarts,
     this has to be the same for sender and consumer
   */
-  durable: boolean // if true, exchange will survive broker restarts
+  durable: boolean
 )
 ```
 

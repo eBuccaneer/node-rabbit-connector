@@ -379,7 +379,7 @@ class NodeRabbitConnector {
         }
     }
     serialize(msg) {
-        return new Buffer(JSON.stringify(msg));
+        return Buffer.from(JSON.stringify(msg));
     }
     /*
         deserializes a rabbitmq message to a RabbitConnectorMessage

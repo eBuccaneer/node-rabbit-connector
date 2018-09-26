@@ -369,7 +369,7 @@ export default class NodeRabbitConnector {
     }
 
     private serialize(msg: RabbitConnectorMessage): Buffer {
-        return new Buffer(JSON.stringify(msg));
+        return Buffer.from(JSON.stringify(msg));
     }
 
     /*

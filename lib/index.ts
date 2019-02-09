@@ -48,9 +48,6 @@ export default class NodeRabbitConnector {
         try {
             this.log(`[NodeRabbitConnector] connecting to host ${this.hostUrl} ...`);
             this.connection = await amqp.connect(this.hostUrl);
-            this.connection.on("close", (err) => {
-                this.log(err, true, true);
-            });
             this.log(`[NodeRabbitConnector] connection to host ${this.hostUrl} established.`);
             await this.connectChannel();
             return Promise.resolve();

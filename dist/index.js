@@ -414,5 +414,23 @@ class NodeRabbitConnector {
             this.log("[NodeRabbitConnector] rejecting message failed.", true);
         }
     }
+    /*
+        closes the connection
+     */
+    closeConnection() {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                if (this.connection) {
+                    yield this.connection.close();
+                }
+                else {
+                    this.log("[NodeRabbitConnector] no open connection.", true);
+                }
+            }
+            catch (err) {
+                this.log("[NodeRabbitConnector] closing connection failed.", true);
+            }
+        });
+    }
 }
 exports.default = NodeRabbitConnector;

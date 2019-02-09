@@ -28,4 +28,5 @@ export default class NodeRabbitConnector {
     deserialize(msg: Message | null): RabbitConnectorMessage;
     ack(msg: Message): void;
     reject(msg: Message): void;
+    closeConnection(): Promise<void>;
 }

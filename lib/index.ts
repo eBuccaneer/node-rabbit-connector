@@ -408,7 +408,7 @@ export default class NodeRabbitConnector {
     /*
         closes the connection
      */
-    public async closeConnection(msg: Message) {
+    public async closeConnection() {
         try {
             if (this.connection) {
                 await this.connection.close();

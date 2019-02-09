@@ -405,5 +405,20 @@ export default class NodeRabbitConnector {
         }
     }
 
+    /*
+        closes the connection
+     */
+    public async closeConnection(msg: Message) {
+        try {
+            if (this.connection) {
+                await this.connection.close();
+            } else {
+                this.log("[NodeRabbitConnector] no open connection.", true);
+            }
+        } catch (err) {
+            this.log("[NodeRabbitConnector] closing connection failed.", true);
+        }
+    }
+
 
 }

@@ -13,6 +13,9 @@ It can be used for connecting to any amqp implementation, but it is only tested 
 Additionally there is an npm module called [node-rabbit-viewer](https://www.npmjs.com/package/node-rabbit-viewer)
 related to this module that allows to write documentation for consumers and requests, but it is still in development.
 
+## What's New?
+- reconnecting after connection close event is fired including application of all listeners
+- event callbacks
 
 ## Install
 Using npm:
@@ -66,6 +69,15 @@ let options: RabbitConnectorOptions = {
   // if true, debug output is printed to console
   // if given a function, it is called with (msg: string, isErr: boolean, exit: boolean) instead of printing to console
   debug: boolean | ((msg: string, isErr?: boolean, exit?: boolean) => void) = false;
+
+  // callback that is called on close callback reception
+  onClose?: () = () => {};
+
+  // callback that is called if reconnection after receiving onClose event was successful
+  onReconnected?: () => void = () => {};
+
+  // callback that is called if reconnection after receiving onClose event was not possible
+  onUnableToReconnect?: () => void = () => {};
 }
 ```
 

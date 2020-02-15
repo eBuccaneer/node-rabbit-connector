@@ -17,7 +17,14 @@ const _isFunction = require("lodash/isFunction");
  */
 class NodeRabbitConnector {
     constructor(options = {}) {
+        this.workQueueListenerStorage = [];
+        this.rpcListenerStorage = [];
+        this.topicListenerStorage = [];
         this.reconnectCounter = 0;
+        this.onClose = () => { return; };
+        this.onReconnected = () => { return; };
+        this.onUnableToReconnect = () => { return; };
+        this.recoveryInProgress = false;
         this.hostUrl = _get(options, "hostUrl", "amqp://localhost");
         this.reconnect = _get(options, "reconnect", true);
         this.reconnectInterval = _get(options, "reconnectInterval", 2000);
@@ -32,19 +39,28 @@ class NodeRabbitConnector {
         this.exitOnDisconnectError = _get(options, "exitOnDisconnectError", true);
         this.channel = undefined;
         this.connection = undefined;
+        if (options.onClose && _isFunction(options.onClose)) {
+            this.onClose = options.onClose;
+        }
+        if (options.onReconnected && _isFunction(options.onReconnected)) {
+            this.onReconnected = options.onReconnected;
+        }
+        if (options.onUnableToReconnect && _isFunction(options.onUnableToReconnect)) {
+            this.onUnableToReconnect = options.onUnableToReconnect;
+        }
         if (!options && this.debug)
             this.log("[NodeRabbitConnector] No options given.");
     }
     /*
         connects the connector to rabbitmq, if successful a channel connection is established afterwards
      */
-    connect() {
+    connect(recovered = false) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 this.log(`[NodeRabbitConnector] connecting to host ${this.hostUrl} ...`);
                 this.connection = yield amqp.connect(this.hostUrl);
                 this.log(`[NodeRabbitConnector] connection to host ${this.hostUrl} established.`);
-                yield this.connectChannel();
+                yield this.connectChannel(recovered);
                 return Promise.resolve();
             }
             catch (err) {
@@ -56,7 +72,7 @@ class NodeRabbitConnector {
                     yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
                         setTimeout(() => __awaiter(this, void 0, void 0, function* () {
                             try {
-                                yield self.connect();
+                                yield self.connect(recovered);
                                 self.reconnectCounter = 0;
                                 resolve();
                             }
@@ -75,7 +91,7 @@ class NodeRabbitConnector {
     /*
         connects a channel to the established connection
      */
-    connectChannel() {
+    connectChannel(recovered = false) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 if (!!this.connection) {
@@ -84,6 +100,10 @@ class NodeRabbitConnector {
                     this.log("[NodeRabbitConnector] connected to channel. Setting prefetch count ...");
                     yield this.channel.prefetch(this.channelPrefetchCount, false);
                     this.log("[NodeRabbitConnector] prefetch count set. Ready to process some messages.");
+                    this.channel.on("close", this.recover.bind(this));
+                    if (recovered) {
+                        yield this.handleRecoveryAfterReconnection();
+                    }
                     return Promise.resolve();
                 }
                 else {
@@ -100,7 +120,7 @@ class NodeRabbitConnector {
                     yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
                         setTimeout(() => __awaiter(this, void 0, void 0, function* () {
                             try {
-                                yield self.connectChannel();
+                                yield self.connectChannel(recovered);
                                 self.reconnectCounter = 0;
                                 resolve();
                             }
@@ -114,6 +134,36 @@ class NodeRabbitConnector {
                     return Promise.reject(err);
                 }
             }
+        });
+    }
+    recover() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this.recoveryInProgress) {
+                this.recoveryInProgress = true;
+                try {
+                    this.onClose();
+                    yield this.connect(true);
+                }
+                catch (e) {
+                    this.onUnableToReconnect();
+                }
+            }
+        });
+    }
+    handleRecoveryAfterReconnection() {
+        return __awaiter(this, void 0, void 0, function* () {
+            // TODO: use pop() or something as this way its endless
+            for (const workQueueListener of this.workQueueListenerStorage) {
+                yield this.setWorkQueueListener(workQueueListener.queueName, workQueueListener.noAck, workQueueListener.consumerCallback);
+            }
+            for (const rpcListener of this.rpcListenerStorage) {
+                yield this.setRPCListener(rpcListener.name, rpcListener.consumerCallback, rpcListener.highPriority);
+            }
+            for (const topicListener of this.topicListenerStorage) {
+                yield this.setTopicListener(topicListener.exchange, topicListener.key, topicListener.durable, topicListener.callback);
+            }
+            this.onReconnected();
+            this.recoveryInProgress = false;
         });
     }
     /*
@@ -132,6 +182,13 @@ class NodeRabbitConnector {
                     yield this.channel.assertQueue(name, { durable: true, maxPriority: highPriority ? 255 : 1 });
                     const response = yield this.channel.consume(name, wrapper, { noAck: false });
                     this.log(`[NodeRabbitConnector] listening to rpc ${name} ...`);
+                    if (!this.recoveryInProgress) {
+                        this.rpcListenerStorage.push({
+                            name,
+                            highPriority,
+                            consumerCallback
+                        });
+                    }
                     return Promise.resolve(response.consumerTag);
                 }
                 else {
@@ -237,6 +294,13 @@ class NodeRabbitConnector {
                     yield this.channel.assertQueue(queueName, { durable: true });
                     const response = yield this.channel.consume(queueName, wrapper, { noAck });
                     this.log(`[NodeRabbitConnector] listening to work queue ${queueName} ...`);
+                    if (!this.recoveryInProgress) {
+                        this.workQueueListenerStorage.push({
+                            queueName,
+                            noAck,
+                            consumerCallback
+                        });
+                    }
                     return Promise.resolve(response.consumerTag);
                 }
                 else {
@@ -292,6 +356,14 @@ class NodeRabbitConnector {
                     yield this.channel.bindQueue(assertedQueue.queue, exchange, key);
                     const response = yield this.channel.consume(assertedQueue.queue, wrapper, { noAck: true });
                     this.log(`[NodeRabbitConnector] listening to topic with key ${key} on exchange ${exchange} ...`);
+                    if (!this.recoveryInProgress) {
+                        this.topicListenerStorage.push({
+                            exchange,
+                            key,
+                            durable,
+                            consumerCallback
+                        });
+                    }
                     return Promise.resolve(response.consumerTag);
                 }
                 else {

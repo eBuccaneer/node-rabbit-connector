@@ -12,6 +12,10 @@ const _isFunction = require("lodash/isFunction");
  */
 export default class NodeRabbitConnector {
 
+  private workQueueListenerStorage: any[] = [];
+  private rpcListenerStorage: any[] = [];
+  private topicListenerStorage: any[] = [];
+
     private hostUrl: string;
     private reconnect: boolean;
     private reconnectTries: number;
@@ -19,9 +23,13 @@ export default class NodeRabbitConnector {
     private reconnectInterval: number;
     private exitOnDisconnectError: boolean;
     private debug: boolean | ((msg: string, isErr?: boolean) => void);
+    private onClose: () => void = () => {return; };
+    private onReconnected: () => void = () => {return; };
+    private onUnableToReconnect: () => void = () => {return; };
     private channelPrefetchCount: number;
     private connection?: amqp.Connection;
     private channel?: amqp.Channel;
+    private recoveryInProgress = false;
 
     constructor(options: RabbitConnectorOptions = {}) {
         this.hostUrl = <string> _get(options, "hostUrl", "amqp://localhost");
@@ -37,6 +45,15 @@ export default class NodeRabbitConnector {
         this.exitOnDisconnectError = <boolean>_get(options, "exitOnDisconnectError", true);
         this.channel = undefined;
         this.connection = undefined;
+        if (options.onClose && _isFunction(options.onClose)) {
+            this.onClose = options.onClose;
+        }
+        if (options.onReconnected && _isFunction(options.onReconnected)) {
+            this.onReconnected = options.onReconnected;
+        }
+        if (options.onUnableToReconnect && _isFunction(options.onUnableToReconnect)) {
+            this.onUnableToReconnect = options.onUnableToReconnect;
+        }
 
         if (!options && this.debug) this.log("[NodeRabbitConnector] No options given.");
     }
@@ -44,12 +61,12 @@ export default class NodeRabbitConnector {
     /*
         connects the connector to rabbitmq, if successful a channel connection is established afterwards
      */
-    public async connect() {
+    public async connect(recovered = false) {
         try {
             this.log(`[NodeRabbitConnector] connecting to host ${this.hostUrl} ...`);
             this.connection = await amqp.connect(this.hostUrl);
             this.log(`[NodeRabbitConnector] connection to host ${this.hostUrl} established.`);
-            await this.connectChannel();
+            await this.connectChannel(recovered);
             return Promise.resolve();
         } catch (err) {
             this.log(`[NodeRabbitConnector] connecting to host ${this.hostUrl} failed.`, true);
@@ -60,7 +77,7 @@ export default class NodeRabbitConnector {
                 await new Promise(async (resolve, reject) => {
                     setTimeout(async () => {
                         try {
-                            await self.connect();
+                            await self.connect(recovered);
                             self.reconnectCounter = 0;
                             resolve();
                         } catch (err) {
@@ -77,7 +94,7 @@ export default class NodeRabbitConnector {
     /*
         connects a channel to the established connection
      */
-    private async connectChannel() {
+    private async connectChannel(recovered = false) {
         try {
             if (!!this.connection) {
                 this.log("[NodeRabbitConnector] connecting to channel ...");
@@ -85,6 +102,10 @@ export default class NodeRabbitConnector {
                 this.log("[NodeRabbitConnector] connected to channel. Setting prefetch count ...");
                 await this.channel.prefetch(this.channelPrefetchCount, false);
                 this.log("[NodeRabbitConnector] prefetch count set. Ready to process some messages.");
+                this.channel.on("close", this.recover.bind(this));
+                if (recovered) {
+                  await this.handleRecoveryAfterReconnection();
+                }
                 return Promise.resolve();
             } else {
                 return Promise.reject(
@@ -100,7 +121,7 @@ export default class NodeRabbitConnector {
                 await new Promise(async (resolve, reject) => {
                     setTimeout(async () => {
                         try {
-                            await self.connectChannel();
+                            await self.connectChannel(recovered);
                             self.reconnectCounter = 0;
                             resolve();
                         } catch (err) {
@@ -112,6 +133,33 @@ export default class NodeRabbitConnector {
                 return Promise.reject(err);
             }
         }
+    }
+
+    private async recover() {
+        if (!this.recoveryInProgress) {
+            this.recoveryInProgress = true;
+            try {
+                this.onClose();
+                await this.connect(true);
+            } catch (e) {
+                this.onUnableToReconnect();
+            }
+        }
+    }
+
+    private async handleRecoveryAfterReconnection() {
+        // TODO: use pop() or something as this way its endless
+        for (const workQueueListener of this.workQueueListenerStorage) {
+            await this.setWorkQueueListener(workQueueListener.queueName, workQueueListener.noAck, workQueueListener.consumerCallback);
+        }
+        for (const rpcListener of this.rpcListenerStorage) {
+            await this.setRPCListener(rpcListener.name, rpcListener.consumerCallback, rpcListener.highPriority);
+        }
+        for (const topicListener of this.topicListenerStorage) {
+            await this.setTopicListener(topicListener.exchange, topicListener.key, topicListener.durable, topicListener.callback);
+        }
+        this.onReconnected();
+        this.recoveryInProgress = false;
     }
 
     /*
@@ -133,6 +181,13 @@ export default class NodeRabbitConnector {
                 const response: Replies.Consume =
                     await this.channel.consume(name, wrapper, {noAck: false});
                 this.log(`[NodeRabbitConnector] listening to rpc ${name} ...`);
+                if (!this.recoveryInProgress) {
+                    this.rpcListenerStorage.push({
+                        name,
+                        highPriority,
+                        consumerCallback
+                    });
+                }
                 return Promise.resolve(response.consumerTag);
             } else {
                 return Promise.reject(
@@ -237,6 +292,13 @@ export default class NodeRabbitConnector {
                 const response: Replies.Consume =
                     await this.channel.consume(queueName, wrapper, {noAck});
                 this.log(`[NodeRabbitConnector] listening to work queue ${queueName} ...`);
+                if (!this.recoveryInProgress) {
+                    this.workQueueListenerStorage.push({
+                        queueName,
+                        noAck,
+                        consumerCallback
+                    });
+                }
                 return Promise.resolve(response.consumerTag);
             } else {
                 return Promise.reject(
@@ -291,6 +353,14 @@ export default class NodeRabbitConnector {
                 await this.channel.bindQueue(assertedQueue.queue, exchange, key);
                 const response: Replies.Consume = await this.channel.consume(assertedQueue.queue, wrapper, {noAck: true});
                 this.log(`[NodeRabbitConnector] listening to topic with key ${key} on exchange ${exchange} ...`);
+                if (!this.recoveryInProgress) {
+                    this.topicListenerStorage.push({
+                        exchange,
+                        key,
+                        durable,
+                        consumerCallback
+                    });
+                }
                 return Promise.resolve(response.consumerTag);
             } else {
                 return Promise.reject(

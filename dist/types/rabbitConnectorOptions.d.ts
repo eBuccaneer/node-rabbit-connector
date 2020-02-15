@@ -6,4 +6,7 @@ export default interface RabbitConnectorOptions {
     channelPrefetchCount?: number;
     exitOnDisconnectError?: boolean;
     debug?: boolean | ((msg: string, isErr?: boolean, exit?: boolean) => void);
+    onClose?: () => void;
+    onReconnected?: () => void;
+    onUnableToReconnect?: () => void;
 }

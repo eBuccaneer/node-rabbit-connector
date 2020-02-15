@@ -24,4 +24,13 @@ export default interface RabbitConnectorOptions {
     // if truthy, debug output is printed to console
     // if given a function, it is called with (msg: string, isErr: boolean, exit?: boolean)
     debug?: boolean | ((msg: string, isErr?: boolean, exit?: boolean) => void);
+
+    // callback that is called on close callback reception
+    onClose?: () => void;
+
+    // callback that is called if reconnection after receiving onClose event was successful
+    onReconnected?: () => void;
+
+    // callback that is called if reconnection after receiving onClose event was not possible
+    onUnableToReconnect?: () => void;
 }

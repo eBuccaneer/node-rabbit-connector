@@ -136,7 +136,7 @@ export default class NodeRabbitConnector {
     }
 
     private async recover() {
-        if (!this.recoveryInProgress) {
+        if (!this.recoveryInProgress && this.reconnect) {
             this.recoveryInProgress = true;
             try {
                 this.onClose();

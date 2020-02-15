@@ -1,7 +1,6 @@
 language: node_js
 node_js:
 - 8
-sudo: required
 cache:
   directories:
   - node_modules
@@ -11,10 +10,11 @@ script:
 - yarn test
 deploy:
   provider: npm
+  edge: true
   email: ebuccaneer@gmx.at
   api_key:
     secure: c3t9BTF0JtbJ98REjk8LrjqCR5Trf4LgMeAo/fFa2vWagvGUq+pZk+7KfSc9VEujRHWMTXgL/8npU4tWK5oRCGPLJXrR0YiB2dVJ7TWIU4YpW8Tek73piDn7lnqvVoLMIYlgrDekCmMGWvBIF5566z+SNWngU5PY91M54AhfeuA6ldnzKU0N0Gi6+kkBzBqAtk2jciJa3oyJEUkbpFF3uqf8q5xfASBQffpvfzPIX6Y1duhvLg3YAMKldOxQJbu2AxaEAIplxI82byAyYNTHY61dezmOBvpqhfRJjyjPFPfLShOZByHD7XtC93UTzcPy5lHeIRT05HPIbSaQb04t2NRhA33b88oGFPXao5O8zvqbRu0+HcAZGWGJXScpp0nxx8iUbRloLs2Lck0KDk5aIbiaXNphE86SBS7COK8NcxvjD72KRPO7d8wK+dbca4Y5B6Xw8B5Sz1bTFPo3fF3HqB/HcFjj6he0CQm6EU06VUvpAN9AVX2jGByVIj/cMGC6tyo8ZWKF6+tpmWja0aOdEZabwHNtw8JZXZAV2Nufca6BTpjR/C7yPFlsQfSd6Z9JSPPqbeRb2gvQIkh5XxnAai2JYC6Zdsmo6M7X/w2ggKPhTBY9r3qYrTRKvLCyoD6W0xk+ydAgjtXVoHrnagmcnJePdVOkiYNHTrqRlQYoqXQ=
   on:
     tags: true
     branch: master
-  skip_cleanup: true
+  cleanup: false

@@ -64,9 +64,11 @@ let options: RabbitConnectorOptions = {
   channelPrefetchCount: number = 1;
     
   // indicates if process should be killed if disconnected
+  // this is only effective if no debug function was passed
+  // if reconnect === true, process.exit() is only called after reconnection try
   exitOnDisconnectError: boolean = true;
     
-  // if true, debug output is printed to console
+  // if true, debug output is printed to console (errors are printed anyway)
   // if given a function, it is called with (msg: string, isErr: boolean, exit: boolean) instead of printing to console
   debug: boolean | ((msg: string, isErr?: boolean, exit?: boolean) => void) = false;
 
@@ -102,7 +104,7 @@ public async setRPCListener(
                             
 ```
 // example usage                                
-connector.setRPCListener("standard_rpc", async (msg: Message | null) => {
+await connector.setRPCListener("standard_rpc", async (msg: Message | null) => {
   // deserialize message
   let message: RabbitConnectorMessage = connector.deserialize(msg); 
         
@@ -156,7 +158,7 @@ public async setWorkQueueListener(
 
 ```
 // example usage  
-connector.setWorkQueueListener("taskQueue", false, (msg: Message | null) => {
+await connector.setWorkQueueListener("taskQueue", false, (msg: Message | null) => {
   // deserialize message
   let message: RabbitConnectorMessage = connector.deserialize(msg);
   
@@ -178,7 +180,7 @@ public async sendToWorkQueue (
 
 ```
 // example usage  
-connector.sendToWorkQueue("taskQueue", {data: {name: "testName", counter: testCounter++}});
+await connector.sendToWorkQueue("taskQueue", {data: {name: "testName", counter: testCounter++}});
 ```
 
 #### Topic Queues
@@ -199,7 +201,7 @@ public async setTopicListener(
 
 ```
 // example usage  
-connector.setTopicListener("defaultExchange", "someTopic", false, (msg: Message | null) => {
+await connector.setTopicListener("defaultExchange", "someTopic", false, (msg: Message | null) => {
   let message: RabbitConnectorMessage = connector.deserialize(msg);
   // do something with the message here
 });
@@ -222,7 +224,21 @@ public async sendToTopic(
 
 ```
 // example usage  
-connector.sendToTopic("defaultExchange", "someTopic", {msg: "testLogMessage"}, false);
+await connector.sendToTopic("defaultExchange", "someTopic", {msg: "testLogMessage"}, false);
+```
+
+#### Remove Listener
+```
+// function signature
+public async stopListening(
+    consumerTag: string // the consumer tag returned by any method adding a listener
+)
+```
+
+
+```
+// example usage 
+await connector.stopListening(tag);
 ```
 
 #### Messages

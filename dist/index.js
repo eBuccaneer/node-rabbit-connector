@@ -138,15 +138,22 @@ class NodeRabbitConnector {
     }
     recover() {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!this.recoveryInProgress) {
+            this.log("[NodeRabbitConnector] connection lost.", true);
+            this.onClose();
+            if (!this.recoveryInProgress && this.reconnect) {
                 this.recoveryInProgress = true;
                 try {
-                    this.onClose();
+                    this.log("[NodeRabbitConnector] reconnecting...");
                     yield this.connect(true);
+                    this.log("[NodeRabbitConnector] reconnection done.");
                 }
                 catch (e) {
                     this.onUnableToReconnect();
+                    this.log("[NodeRabbitConnector] unable to reconnect.", true, true);
                 }
+            }
+            else {
+                this.log("[NodeRabbitConnector] not reconnecting due to options.", true, true);
             }
         });
     }

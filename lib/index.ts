@@ -136,19 +136,24 @@ export default class NodeRabbitConnector {
     }
 
     private async recover() {
+        this.log("[NodeRabbitConnector] connection lost.", true);
+        this.onClose();
         if (!this.recoveryInProgress && this.reconnect) {
             this.recoveryInProgress = true;
             try {
-                this.onClose();
+                this.log("[NodeRabbitConnector] reconnecting...");
                 await this.connect(true);
+                this.log("[NodeRabbitConnector] reconnection done.");
             } catch (e) {
                 this.onUnableToReconnect();
+                this.log("[NodeRabbitConnector] unable to reconnect.", true, true);
             }
+        } else {
+            this.log("[NodeRabbitConnector] not reconnecting due to options.", true, true);
         }
     }
 
     private async handleRecoveryAfterReconnection() {
-        // TODO: use pop() or something as this way its endless
         for (const workQueueListener of this.workQueueListenerStorage) {
             await this.setWorkQueueListener(workQueueListener.queueName, workQueueListener.noAck, workQueueListener.consumerCallback);
         }
